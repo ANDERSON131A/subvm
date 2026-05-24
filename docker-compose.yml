@@ -1,0 +1,16 @@
+services:
+  debian:
+    build:
+      context: .
+      args:
+        SSH_PORT: ${SSH_PORT:-2222}
+    container_name: ${VM_NAME:-debian-vm}
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - debian-home:/home/vm
+      - debian-root:/root
+
+volumes:
+  debian-home:
+  debian-root:
