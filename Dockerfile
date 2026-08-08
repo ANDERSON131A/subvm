@@ -1,6 +1,8 @@
 FROM debian:bookworm-slim
 
 ARG SSH_PORT=2222
+ARG ROOT_PASS=debian123
+ARG VM_PASS=vm123
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
@@ -22,10 +24,10 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
     && sed -i "s/#Port 22/Port ${SSH_PORT}/" /etc/ssh/sshd_config \
     && mkdir -p /run/sshd
 
-RUN echo "root:debian123" | chpasswd
+RUN echo "root:${ROOT_PASS}" | chpasswd
 
 RUN useradd -m -s /bin/bash vm \
-    && echo "vm:vm123" | chpasswd \
+    && echo "vm:${VM_PASS}" | chpasswd \
     && usermod -aG sudo vm
 
 EXPOSE ${SSH_PORT}

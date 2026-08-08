@@ -18,27 +18,30 @@ if errorlevel 1 (
 
 rem === Check / Start Docker ===
 wsl -d kali -- docker info >nul 2>&1
+if not errorlevel 1 goto docker_ok
+echo Docker is not running, starting it automatically...
+echo Starting Docker ...
+wsl -d kali -u root -- service docker start >nul 2>&1
 if errorlevel 1 (
-    echo Docker is not running.
-    choice /c YN /m "Start it now" /n
-    if errorlevel 2 goto end
-    echo Starting Docker ...
-    wsl -d kali -u root -- service docker start >nul 2>&1
-    if errorlevel 1 (
-        echo [ERROR] Failed to start Docker daemon.
-        pause
-        exit /b 1
-    )
-    timeout /t 2 /nobreak >nul
-    wsl -d kali -- docker info >nul 2>&1
-    if errorlevel 1 (
-        echo [ERROR] Docker did not start properly.
-        pause
-        exit /b 1
-    )
-    echo Docker started successfully.
-    echo.
+    echo [ERROR] Failed to start Docker daemon.
+    pause
+    exit /b 1
 )
+echo Waiting for Docker daemon ...
+set /a TRIES=0
+:waitdocker
+set /a TRIES+=1
+if !TRIES! gtr 10 (
+    echo [ERROR] Docker did not start properly.
+    pause
+    exit /b 1
+)
+timeout /t 2 /nobreak >nul
+wsl -d kali -- docker info >nul 2>&1
+if errorlevel 1 goto waitdocker
+echo Docker started successfully.
+echo.
+:docker_ok
 
 rem === Enumerate containers ===
 set RUN_COUNT=0
@@ -81,9 +84,10 @@ if !RUN_COUNT! gtr 0 (
 
 if !STOP_COUNT! gtr 0 (
     echo Stopped:
-    for /l %%i in (1,1,!STOP_COUNT!) do (
-        set /a IDX=RUN_COUNT+%%i
-        echo   [!IDX!] !NAME_!IDX!!  (stopped)
+    set /a IDX=RUN_COUNT
+    for /f "delims=" %%a in ('wsl -d kali -- docker ps -a --format "{{.Names}}" --filter "status=exited" 2^>nul') do (
+        set /a IDX+=1
+        echo   [!IDX!] %%a  (stopped^)
     )
     echo.
 )

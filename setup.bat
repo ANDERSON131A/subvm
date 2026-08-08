@@ -11,15 +11,46 @@ if "%PORT%"=="" set PORT=2222
 echo VM_NAME=%VM_NAME%> .env
 echo SSH_PORT=%PORT%>> .env
 
+rem === Check WSL ===
+wsl -d kali -- echo ok >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] WSL distro "kali" not available.
+    echo   Run: wsl --install -d kali
+    goto end
+)
+
+rem === Check / Start Docker ===
+wsl -d kali -- docker info >nul 2>&1
+if not errorlevel 1 goto docker_ok
+echo Docker is not running, starting it ...
+wsl -d kali -u root -- service docker start >nul 2>&1
+if errorlevel 1 (
+    echo [ERROR] Failed to start Docker daemon.
+    goto end
+)
+echo Waiting for Docker daemon ...
+set /a TRIES=0
+:waitdocker
+set /a TRIES+=1
+if !TRIES! gtr 10 (
+    echo [ERROR] Docker did not start properly.
+    goto end
+)
+timeout /t 2 /nobreak >nul
+wsl -d kali -- docker info >nul 2>&1
+if errorlevel 1 goto waitdocker
+echo Docker started successfully.
+:docker_ok
+
 echo [1/3] Cleaning old %VM_NAME% ...
-wsl -d kali -- docker compose -f /mnt/e/debian-vm/docker-compose.yml --env-file /mnt/e/debian-vm/.env -p %VM_NAME% down -v 2>nul
+wsl -d kali --cd "%~dp0" -- docker compose -f docker-compose.yml --env-file .env -p %VM_NAME% down -v 2>nul
 
 echo [2/3] Building %VM_NAME% (port %PORT%) ...
-wsl -d kali -- docker compose -f /mnt/e/debian-vm/docker-compose.yml --env-file /mnt/e/debian-vm/.env -p %VM_NAME% build
+wsl -d kali --cd "%~dp0" -- docker compose -f docker-compose.yml --env-file .env -p %VM_NAME% build
 if errorlevel 1 goto end
 
 echo [3/3] Starting %VM_NAME% ...
-wsl -d kali -- docker compose -f /mnt/e/debian-vm/docker-compose.yml --env-file /mnt/e/debian-vm/.env -p %VM_NAME% up -d
+wsl -d kali --cd "%~dp0" -- docker compose -f docker-compose.yml --env-file .env -p %VM_NAME% up -d
 
 echo.
 echo ============================================
@@ -31,4 +62,5 @@ echo   Shell: shell.bat
 echo ============================================
 
 echo.
+:end
 pause

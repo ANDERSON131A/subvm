@@ -5,7 +5,7 @@ Debian Bookworm 容器，主机网络直通，SSH + tmux 开箱即用。双击 B
 ## 架构
 
 ```
-Windows (E:\debian-vm\)
+Windows (任意目录，BAT 自动定位)
   └─ WSL Kali
        └─ Docker
             ├─ debian-vm  (host 网络, SSH :2222)
@@ -34,8 +34,8 @@ Windows (E:\debian-vm\)
 | 项目 | 值 |
 |------|-----|
 | 基础镜像 | `debian:bookworm-slim` |
-| root 密码 | `debian123` |
-| 普通用户 | `vm` / `vm123` |
+| root 密码 | `debian123`（可用 `ROOT_PASS` 覆盖） |
+| 普通用户 | `vm` / `vm123`（可用 `VM_PASS` 覆盖） |
 | 已装工具 | tmux, curl, wget, git, vim, lsof, net-tools, procps, locales |
 | 网络模式 | host（与 WSL 共享 IP 和端口） |
 
@@ -81,7 +81,6 @@ setup.bat → 名: dev3, 端口: 2224
 - JSON 无注释、引号敏感、嵌套难读
 - Docker Compose YAML 可注释、缩进即层级、禁用选项不报错
 - 参考：Docker、K8s、Home Assistant 均采用 YAML
-```
 
 ## 踩坑记录
 

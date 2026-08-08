@@ -4,6 +4,8 @@ services:
       context: .
       args:
         SSH_PORT: ${SSH_PORT:-2222}
+        ROOT_PASS: ${ROOT_PASS:-debian123}
+        VM_PASS: ${VM_PASS:-vm123}
     container_name: ${VM_NAME:-debian-vm}
     network_mode: host
     restart: unless-stopped
