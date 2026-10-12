@@ -1,6 +1,6 @@
-# Debian VM — Portable Docker Dev Environment
+# Debian / openEuler VM — Portable Docker Dev Environment
 
-Debian Bookworm 容器，主机网络直通，SSH + tmux 开箱即用。双击 BAT 创建或进入。
+Debian 或 openEuler 容器（均用 `latest` 基础镜像），主机网络直通，SSH + tmux 开箱即用。双击 BAT 创建或进入。
 
 ## 架构
 
@@ -9,7 +9,7 @@ Windows (任意目录，BAT 自动定位)
   └─ WSL Kali
        └─ Docker
             ├─ debian-vm  (host 网络, SSH :2222)
-            ├─ another-vm (host 网络, SSH :2223)
+            ├─ euler-vm   (host 网络, SSH :2223)
             └─ ...
 ```
 
@@ -17,27 +17,46 @@ Windows (任意目录，BAT 自动定位)
 
 | 文件 | 作用 |
 |------|------|
-| `Dockerfile` | 镜像定义：Debian Bookworm + SSH + tmux + curl/git/vim |
-| `docker-compose.yml` | `network_mode: host`，`${VM_NAME}` 变量注入 |
-| `setup.bat` | 交互式创建容器（名称、端口） |
+| `Dockerfile` | Debian 镜像定义：SSH + tmux + curl/git/vim（base image 由 `BASE_IMAGE` 参数注入） |
+| `Dockerfile.euler` | openEuler 镜像定义，结构同上 |
+| `docker-compose.yml` | Debian 服务，`network_mode: host`，`${VM_NAME}` 变量注入 |
+| `docker-compose.euler.yml` | openEuler 服务，结构同上，密码默认 `euler123` |
+| `setup.bat` | 交互式创建容器（发行版、名称、端口） |
 | `shell.bat` | 列出所有运行容器，手动选择进入 |
 
 ## 快速开始
 
 1. 双击 **`setup.bat`**
-2. 输入容器名（默认 `debian-vm`）
-3. 输入 SSH 端口（默认 `2222`）
-4. 构建完成 → 双击 **`shell.bat`** 进入
+2. 选择发行版：
+   - `1` = Debian latest（默认）
+   - `2` = openEuler latest
+3. 输入容器名（默认按发行版 `debian-vm` / `euler-vm`）
+4. 输入 SSH 端口（默认 `2222`）
+5. 构建完成 → 双击 **`shell.bat`** 进入
+
+基础镜像为 `debian:latest`（目前 Debian 13 trixie）和 `openeuler/openeuler:latest`（目前 24.03 LTS-SP4），建置时 `--pull` 确保抓最新。想固定版本就改 `.env` 的 `BASE_IMAGE`（如 `debian:bookworm-slim` / `openeuler/openeuler:24.03-lts`）。
 
 ## 容器详情
 
+### Debian
+
 | 项目 | 值 |
 |------|-----|
-| 基础镜像 | `debian:bookworm-slim` |
+| 基础镜像 | `debian:latest`（目前 13 trixie） |
 | root 密码 | `debian123`（可用 `ROOT_PASS` 覆盖） |
-| 普通用户 | `vm` / `vm123`（可用 `VM_PASS` 覆盖） |
-| 已装工具 | tmux, curl, wget, git, vim, lsof, net-tools, procps, locales |
-| 网络模式 | host（与 WSL 共享 IP 和端口） |
+| 普通用户 | `vm` / `vm123`（可用 `VM_PASS` 覆盖，sudo 组） |
+| 已装工具 | tmux, curl, wget, git, vim, lsof, net-tools, procps, locales, sudo |
+
+### openEuler
+
+| 项目 | 值 |
+|------|-----|
+| 基础镜像 | `openeuler/openeuler:latest`（目前 24.03 LTS-SP4） |
+| root 密码 | `euler123`（可用 `ROOT_PASS` 覆盖） |
+| 普通用户 | `vm` / `vm123`（可用 `VM_PASS` 覆盖，wheel 组） |
+| 已装工具 | tmux, curl, wget, git, vim, lsof, net-tools, shadow, sudo |
+
+两个发行版均为 host 网络模式（与 WSL 共享 IP 和端口）。
 
 ## SSH 连接
 
@@ -61,6 +80,12 @@ setup.bat → 名: dev3, 端口: 2224
 卷自动按项目名隔离（`dev1_debian-home`, `dev2_debian-home` ...）。
 
 ## 设计决策
+
+### 为什么 build 总是加 `--pull`
+`docker build` 默认复用本地已有的 base image，`latest` 不会自动更新；每次建置 `--pull` 强制检查 registry，避免拿到半年前的旧镜像。
+
+### 为什么 openEuler 用独立 compose 文件
+Debian 用 apt、openEuler 用 dnf，用户组、sshd_config 默认值都不同；单 Dockerfile 条件分支难维护。两个 compose 文件各 18 行，复制成本低，`.env` 保持精简（`VM_NAME` / `SSH_PORT` / `BASE_IMAGE`）。
 
 ### 为什么 `network_mode: host`
 - 避免 24000 个端口逐一映射
@@ -110,3 +135,17 @@ volumes:
 volumes:
   debian-home:     # docker compose -p mybox → mybox_debian-home
 ```
+
+### openEuler 与 Debian 的差异
+
+RPM 安装 `openssh-server` **不会生成 host key**（Debian 的 postinst 会），容器内必须补：
+```dockerfile
+RUN ssh-keygen -A
+```
+否则 sshd 启动即退出，容器陷入 `Restarting (255)` 循环。常见诱因还有：host 网络下端口被别的容器占用。
+
+openEuler 的 sshd_config 默认已是 `PermitRootLogin yes` / `PasswordAuthentication yes`（Debian 是注释掉的），sed 要同时兼容 `^#?` 两种写法。
+
+基础镜像很精简：没有 `useradd`/`chpasswd`（装 `shadow`）、没有 `sudo`（装 `sudo`）、用户组是 `wheel` 而非 `sudo`；`procps-ng`、`ca-certificates` 已预装，无需重复安装。
+
+`chpasswd` 会打印 `BAD PASSWORD` 警告（pam_pwquality），但默认不强制，密码照常生效。

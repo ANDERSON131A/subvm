@@ -1,0 +1,20 @@
+services:
+  euler:
+    build:
+      context: .
+      dockerfile: Dockerfile.euler
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-openeuler/openeuler:latest}
+        SSH_PORT: ${SSH_PORT:-2222}
+        ROOT_PASS: ${ROOT_PASS:-euler123}
+        VM_PASS: ${VM_PASS:-vm123}
+    container_name: ${VM_NAME:-euler-vm}
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - euler-home:/home/vm
+      - euler-root:/root
+
+volumes:
+  euler-home:
+  euler-root:

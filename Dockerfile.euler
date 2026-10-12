@@ -1,0 +1,34 @@
+ARG BASE_IMAGE=openeuler/openeuler:latest
+FROM ${BASE_IMAGE}
+
+ARG SSH_PORT=2222
+ARG ROOT_PASS=euler123
+ARG VM_PASS=vm123
+
+RUN dnf install -y \
+        openssh-server \
+        shadow \
+        sudo \
+        tmux \
+        curl \
+        wget \
+        git \
+        vim \
+        lsof \
+        net-tools \
+    && dnf clean all
+
+RUN ssh-keygen -A \
+    && sed -i "s/#Port 22/Port ${SSH_PORT}/" /etc/ssh/sshd_config \
+    && sed -i "s/^#\?PermitRootLogin.*/PermitRootLogin yes/" /etc/ssh/sshd_config \
+    && sed -i "s/^#\?PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config
+
+RUN echo "root:${ROOT_PASS}" | chpasswd
+
+RUN useradd -m -s /bin/bash vm \
+    && echo "vm:${VM_PASS}" | chpasswd \
+    && usermod -aG wheel vm
+
+EXPOSE ${SSH_PORT}
+
+ENTRYPOINT ["/usr/sbin/sshd", "-D"]

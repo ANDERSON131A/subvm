@@ -1,15 +1,45 @@
 @echo off
 setlocal enabledelayedexpansion
-title Debian VM Setup
+title VM Setup
 
-set /p VM_NAME="Container name [debian-vm]: "
-if "%VM_NAME%"=="" set VM_NAME=debian-vm
+echo ==============================
+echo   VM Setup
+echo ==============================
+echo.
+echo Distros:
+echo   [1] Debian latest
+echo   [2] openEuler latest
+echo.
+set /p DISTRO="Distro [1]: "
+
+if "%DISTRO%"=="2" goto euler
+if /i "%DISTRO%"=="euler" goto euler
+
+set COMPOSE_FILE=docker-compose.yml
+set DISTRO_NAME=Debian
+set BASE_IMAGE=debian:latest
+set DEF_NAME=debian-vm
+set DEF_ROOT=debian123
+goto distro_ok
+
+:euler
+set COMPOSE_FILE=docker-compose.euler.yml
+set DISTRO_NAME=openEuler
+set BASE_IMAGE=openeuler/openeuler:latest
+set DEF_NAME=euler-vm
+set DEF_ROOT=euler123
+
+:distro_ok
+echo.
+set /p VM_NAME="Container name [%DEF_NAME%]: "
+if "%VM_NAME%"=="" set VM_NAME=%DEF_NAME%
 
 set /p PORT="SSH port [2222]: "
 if "%PORT%"=="" set PORT=2222
 
 echo VM_NAME=%VM_NAME%> .env
 echo SSH_PORT=%PORT%>> .env
+echo BASE_IMAGE=%BASE_IMAGE%>> .env
 
 rem === Check WSL ===
 wsl -d kali -- echo ok >nul 2>&1
@@ -43,20 +73,21 @@ echo Docker started successfully.
 :docker_ok
 
 echo [1/3] Cleaning old %VM_NAME% ...
-wsl -d kali --cd "%~dp0" -- docker compose -f docker-compose.yml --env-file .env -p %VM_NAME% down -v 2>nul
+wsl -d kali --cd "%~dp0" -- docker compose -f %COMPOSE_FILE% --env-file .env -p %VM_NAME% down -v 2>nul
 
-echo [2/3] Building %VM_NAME% (port %PORT%) ...
-wsl -d kali --cd "%~dp0" -- docker compose -f docker-compose.yml --env-file .env -p %VM_NAME% build
+echo [2/3] Building %DISTRO_NAME% (%VM_NAME%, port %PORT%) ...
+wsl -d kali --cd "%~dp0" -- docker compose -f %COMPOSE_FILE% --env-file .env -p %VM_NAME% build --pull
 if errorlevel 1 goto end
 
 echo [3/3] Starting %VM_NAME% ...
-wsl -d kali --cd "%~dp0" -- docker compose -f docker-compose.yml --env-file .env -p %VM_NAME% up -d
+wsl -d kali --cd "%~dp0" -- docker compose -f %COMPOSE_FILE% --env-file .env -p %VM_NAME% up -d
 
 echo.
 echo ============================================
-echo   %VM_NAME% ready!
+echo   %DISTRO_NAME% - %VM_NAME% ready!
+echo   Image: %BASE_IMAGE%
 echo   SSH : ssh root@localhost -p %PORT%
-echo         (root / debian123)
+echo         (root / %DEF_ROOT%)
 echo         (vm   / vm123)
 echo   Shell: shell.bat
 echo ============================================

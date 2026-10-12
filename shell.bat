@@ -1,6 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
-title Debian VM Shell
+title VM Shell
 
 echo ==============================
 echo   Docker Container Shell

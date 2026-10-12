@@ -1,4 +1,5 @@
-FROM debian:bookworm-slim
+ARG BASE_IMAGE=debian:latest
+FROM ${BASE_IMAGE}
 
 ARG SSH_PORT=2222
 ARG ROOT_PASS=debian123
@@ -17,6 +18,7 @@ RUN apt-get update && apt-get upgrade -y \
         lsof \
         net-tools \
         locales \
+        sudo \
     && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
